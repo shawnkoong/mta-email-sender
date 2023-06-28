@@ -1,4 +1,4 @@
-package mta_email_sender
+package main
 
 import (
 	"context"
