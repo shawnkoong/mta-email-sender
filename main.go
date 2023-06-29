@@ -25,6 +25,20 @@ func main() {
 	})
 	defer reader.Close()
 
+	//for using cloudkarafka
+	//mechanism, err := scram.Mechanism(scram.SHA256, "username", "password")
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+	//dialer := &kafka.Dialer{
+	//	SASLMechanism: mechanism,
+	//}
+	//r := kafka.NewReader(kafka.ReaderConfig{
+	//	Brokers: []string{"localhost:" + kafkaPort},
+	//	Topic:   "emails",
+	//	Dialer:  dialer,
+	//})
+
 	for {
 		message, err := reader.ReadMessage(context.Background())
 		if err != nil {
