@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 
 	"github.com/joho/godotenv"
 	"github.com/segmentio/kafka-go"
@@ -21,9 +22,9 @@ func main() {
 	}
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers: []string{"localhost:" + kafkaPort},
-		Topic:   "emails",
+		Topic:   "emails-topic",
+		GroupID: "1",
 	})
-	defer reader.Close()
 
 	//for using cloudkarafka
 	//mechanism, err := scram.Mechanism(scram.SHA256, "username", "password")
@@ -39,17 +40,36 @@ func main() {
 	//	Dialer:  dialer,
 	//})
 
-	for {
-		message, err := reader.ReadMessage(context.Background())
-		if err != nil {
-			fmt.Printf("Error reading message: %v\n", err)
-			break
-		}
-		fmt.Printf("Received message: %v\n", message.Value)
+	ctx := context.Background()
+	ctx, cancel := context.WithCancel(ctx)
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, os.Interrupt)
 
-		err = reader.CommitMessages(context.Background(), message)
-		if err != nil {
-			fmt.Printf("Error commiting message: %v\n", err)
+Loop:
+	for {
+		select {
+		case <-ctx.Done():
+			break Loop
+		case <-signals:
+			cancel()
+		default:
+			message, err := reader.FetchMessage(ctx)
+			if err != nil {
+				if err.Error() == context.Canceled.Error() {
+					break
+				}
+				log.Printf("error reading message: %s\n", err.Error())
+				continue
+			}
+			handleMessage(message)
+			err = reader.CommitMessages(context.Background(), message)
+			if err != nil {
+				fmt.Printf("Error commiting message: %v\n", err)
+			}
 		}
+	}
+
+	if err := reader.Close(); err != nil {
+		log.Fatal("failed to close:", err)
 	}
 }
