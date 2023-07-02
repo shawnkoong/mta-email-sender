@@ -1,10 +1,20 @@
 package main
 
-import "sync"
+import (
+	"sync"
+	"time"
+)
 
 type EmailTracker struct {
-	mtx        sync.Mutex
-	emailsSent map[string]string
+	mux      sync.RWMutex
+	emailMap map[string]*RouteTracker
+}
+
+type RouteTracker struct {
+	mux      sync.RWMutex
+	routeMap map[string]time.Time
+	// ideally have routeMap as map[string]map[string]timestamp as route to alert to timestamp
+	// but then would periodically have to clean the map of alerts to not hold all old alerts
 }
 
 var instance *EmailTracker
@@ -13,14 +23,40 @@ var once sync.Once
 func getEmailTracker() *EmailTracker {
 	once.Do(func() {
 		instance = &EmailTracker{
-			emailsSent: make(map[string]string),
+			emailMap: make(map[string]*RouteTracker),
 		}
 	})
 	return instance
 }
 
-func (tracker *EmailTracker) update() {
-	tracker.mtx.Lock()
-	defer tracker.mtx.Unlock()
-	// update logic
+func NewRouteTracker() *RouteTracker {
+	return &RouteTracker{
+		routeMap: make(map[string]time.Time),
+	}
+}
+
+func (et *EmailTracker) update(email string, routeTracker *RouteTracker) {
+	et.mux.Lock()
+	defer et.mux.Unlock()
+	et.emailMap[email] = routeTracker
+}
+
+func (et *EmailTracker) get(email string) (*RouteTracker, bool) {
+	et.mux.RLock()
+	defer et.mux.RUnlock()
+	rt, ok := et.emailMap[email]
+	return rt, ok
+}
+
+func (rt *RouteTracker) update(route string, now time.Time) {
+	rt.mux.Lock()
+	defer rt.mux.Unlock()
+	rt.routeMap[route] = now
+}
+
+func (rt *RouteTracker) get(route string) (time.Time, bool) {
+	rt.mux.RLock()
+	defer rt.mux.RUnlock()
+	t, ok := rt.routeMap[route]
+	return t, ok
 }
