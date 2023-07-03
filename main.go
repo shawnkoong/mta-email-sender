@@ -16,6 +16,8 @@ func main() {
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
+
+	// kafka setup
 	kafkaPort := os.Getenv("KAFKA_PORT")
 	if kafkaPort == "" {
 		log.Fatal("Missing port for kafka")
@@ -26,7 +28,18 @@ func main() {
 		GroupID: "1",
 	})
 
-	//for using cloudkarafka
+	// email setup
+	gmailAddress := os.Getenv("GMAIL_ADDRESS")
+	if gmailAddress == "" {
+		log.Fatal("Missing gmail address")
+	}
+	gmailPassword := os.Getenv("GMAIL_PASSWORD")
+	if gmailPassword == "" {
+		log.Fatal("Missing gmail password")
+	}
+	emailSender := NewGmailSender("MTA Tracker", gmailAddress, gmailPassword)
+
+	//// for using cloudkarafka
 	//mechanism, err := scram.Mechanism(scram.SHA256, "username", "password")
 	//if err != nil {
 	//	log.Fatal(err)
@@ -61,7 +74,7 @@ Loop:
 				log.Printf("error reading message: %s\n", err.Error())
 				continue
 			}
-			handleMessage(message)
+			handleMessage(message, emailSender)
 			err = reader.CommitMessages(context.Background(), message)
 			if err != nil {
 				fmt.Printf("Error commiting message: %v\n", err)
