@@ -60,3 +60,16 @@ func (rt *RouteTracker) get(route string) (time.Time, bool) {
 	t, ok := rt.routeMap[route]
 	return t, ok
 }
+
+// returns true if new email should be sent, otherwise returns false
+func (rt *RouteTracker) checkLastTimeSent(route string) bool {
+	lastTime, ok := rt.get(route)
+	if !ok {
+		return true
+	}
+	timeDiff := time.Since(lastTime)
+	if timeDiff > 15*time.Minute { // threshold of 15 minutes for now
+		return true
+	}
+	return false
+}
